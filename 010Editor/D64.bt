@@ -1,0 +1,210 @@
+//------------------------------------------------
+//--- 010 Editor v12.0.1 Binary Template
+//
+//      File: D64.bt
+//   Authors: Cesare Pizzi (@red5heep)
+//   Version: 1.0
+//   Purpose: D64 (Image of physical 1541 disk)
+//  Category: Drives
+// File Mask: *.d64
+//  ID Bytes: 
+//   History: 
+//            1.0   2022-05-03 Cesare Pizzi: Initial release
+// More info: information about format has been found at
+//            http://unusedino.de/ec64/technical/formats/d64.html
+//------------------------------------------------
+
+LittleEndian();
+
+// Local indexes variables
+local int i, x, z;
+
+// Colors
+#define cPurple     0xff00ff
+#define cDkPurple   0x800080
+#define cLtPurple   0xffe0ff 
+#define cAqua       0xffff00
+#define cGreen      0x00ff00
+#define cDkGreen    0x008000
+#define cLtGreen    0x80ff80 
+
+//
+// BAM definitions
+//
+typedef struct (int idx) {
+
+    local int localidx = idx; // Save index
+    
+    uchar free_blk <name="Free Blocks">;
+    uchar bitmap1 <name="Bitmap free sectors 1", format=binary>;
+    uchar bitmap2 <name="Bitmap free sectors 2", format=binary>;
+    uchar bitmap3 <name="Bitmap free sectors 3", format=binary>;
+
+} BAM_entry;
+
+typedef struct {
+    uchar track_fst_blk <name="Track First Dir block">;
+    uchar sect_fst_blk <name="Sector First Dir block">;
+    uchar dos_version <name="DOS Version", comment="Usually set to $41">;
+    uchar unk1 <name="Unused">;
+    
+    // BAM entries for each track
+    for(x=1; x<36; x++) {
+        BAM_entry TrackX(x) <name=Str("Track %d entries", this.localidx)>;
+    }
+
+    uchar DiskName[16] <comment="Padded with $A0">;
+    uchar Padding1[2] <format=hex>;
+    uchar DiskID[2] <format=hex>;
+    uchar Padding2 <format=hex>;
+    uchar DOSType[2] <format=hex, comment="Usually set to 2A">;
+    uchar Padding3[4] <format=hex>;
+
+    uchar Unused1[85] <name="Unused", comment="Unused ($00) except for 40 track format">;
+} BAM;
+
+// End of BAM definitions
+
+//
+// DIRECTORY sector definitions
+//
+
+string fileType(uchar type) {
+
+    local string ftype = "";
+    local uchar ltype;
+
+    ltype = type & 0x0f;
+
+    switch (ltype) {
+        case 0:
+            ftype = "DEL";
+            break;
+        case 1:
+            ftype = "SEQ";
+            break;
+        case 2:
+            ftype = "PRG";
+            break;
+        case 3:
+            ftype = "USR";
+            break;
+        case 4:
+            ftype = "REL";
+            break;
+        default:
+            ftype = "Unknown";
+    }
+    
+    // Locked file
+    if ( type & 0x40 ) {
+        ftype = ftype + "<";
+    }
+
+    // Not-closed file
+    if ( !type & 0x80 ) {
+        ftype = ftype + "*";
+    }
+
+    return ftype;
+}
+
+typedef struct (int idx) {
+    local int localidx = idx; // Save index
+
+    uchar track_next_blk <name="Track Next Dir block">;
+    uchar sect_next_blk <name="Sector Next Dir block">;
+
+    uchar file_type <name="File Type", format=hex, comment=fileType>;
+    uchar track_fst_file_block <name="Track First File Block">;
+    uchar sector_fst_file_block <name="Sector First File Block">;
+    uchar filename[16] <name="Filename">;
+    uchar track_side_sector <name="Track Side-Sector block", comment="For REL file only">;
+    uchar sect_side_sector <name="Sector Side-Sector block", comment="For REL file only">;
+    uchar rel_record_len <name="REL file record length", comment="REL file only, max value 254">;
+    uchar Unused2[6] <name="Unused", comment="Except GEOS disks">;
+    uchar file_size[2] <name="File Size">;
+
+} SECTOR_directory_entry;
+
+typedef struct {
+
+    for (z = 1; z<9; z++) {
+        SECTOR_directory_entry EntryX(z) <name=Str("File %d", this.localidx)>;
+    }
+
+} SECTOR_directory;
+
+// End of DIRECTORY sector definitions
+
+typedef struct {
+    uchar NextTrack <fgcolor=cPurple>;
+    uchar NextSector <fgcolor=cDkPurple>;
+    uchar sectorByte[254] <format=hex, fgcolor=cAqua>;
+} SECTOR;
+
+typedef struct {
+    for (i = 0; i<21; i++)
+        SECTOR sector;
+} TRACK1_17;
+
+typedef struct {
+    BAM bam <name="BAM", fgcolor=cLtGreen>;
+    for (i = 0; i<18; i++)
+        SECTOR_directory sector <fgcolor=cGreen>;
+} TRACK18;
+
+typedef struct {
+    for (i = 0; i<19; i++)
+        SECTOR sector;
+} TRACK19_24;
+
+typedef struct {
+    for (i = 0; i<18; i++)
+        SECTOR sector;
+} TRACK25_30;
+
+typedef struct {
+    for (i = 0; i<17; i++)
+        SECTOR sector;
+} TRACK31_35;
+
+//
+// Main: DISK structure
+//
+
+TRACK1_17 Track_1 <name="Track 1">;
+TRACK1_17 Track_2 <name="Track 2">;
+TRACK1_17 Track_3 <name="Track 3">;
+TRACK1_17 Track_4 <name="Track 4">;
+TRACK1_17 Track_5 <name="Track 5">;
+TRACK1_17 Track_6 <name="Track 6">;
+TRACK1_17 Track_7 <name="Track 7">;
+TRACK1_17 Track_8 <name="Track 8">;
+TRACK1_17 Track_9 <name="Track 9">;
+TRACK1_17 Track_10 <name="Track 10">;
+TRACK1_17 Track_11 <name="Track 11">;
+TRACK1_17 Track_12 <name="Track 12">;
+TRACK1_17 Track_13 <name="Track 13">;
+TRACK1_17 Track_14 <name="Track 14">;
+TRACK1_17 Track_15 <name="Track 15">;
+TRACK1_17 Track_16 <name="Track 16">;
+TRACK1_17 Track_17 <name="Track 17">;
+TRACK18 Track_18 <name="Track 18 - DIRECTORY">;
+TRACK19_24 Track_19 <name="Track 19">;
+TRACK19_24 Track_20 <name="Track 20">;
+TRACK19_24 Track_21 <name="Track 21">;
+TRACK19_24 Track_22 <name="Track 22">;
+TRACK19_24 Track_23 <name="Track 23">;
+TRACK19_24 Track_24 <name="Track 24">;
+TRACK25_30 Track_25 <name="Track 25">;
+TRACK25_30 Track_26 <name="Track 26">;
+TRACK25_30 Track_27 <name="Track 27">;
+TRACK25_30 Track_28 <name="Track 28">;
+TRACK25_30 Track_29 <name="Track 29">;
+TRACK25_30 Track_30 <name="Track 30">;
+TRACK31_35 Track_31 <name="Track 31">;
+TRACK31_35 Track_32 <name="Track 32">;
+TRACK31_35 Track_33 <name="Track 33">;
+TRACK31_35 Track_34 <name="Track 34">;
+TRACK31_35 Track_35 <name="Track 35">;
